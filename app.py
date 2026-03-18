@@ -106,7 +106,7 @@ Instructions:
 # -------------------------------
 st.subheader("Power BI Dashboard")
 
-POWERBI_URL = "https://app.powerbi.com/reportEmbed?reportId=5103c909-2686-4b16-b1f1-57d566052411&autoAuth=true&ctid=27282fdd-4c0b-4dfb-ba91-228cd83fdf71"
+POWERBI_URL = "https://app.powerbi.com/groups/me/reports/5103c909-2686-4b16-b1f1-57d566052411/2975060772e30629a013?ctid=27282fdd-4c0b-4dfb-ba91-228cd83fdf71&experience=power-bi"
 
 components.iframe(POWERBI_URL, height=650, scrolling=True)
 
