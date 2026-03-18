@@ -3,10 +3,10 @@ import pandas as pd
 import plotly.express as px
 import os
 import google.generativeai as genai
-import streamlit.components.v1 as components
+import boto3
+from io import StringIO
 
 st.set_page_config(page_title="AI BI Assistant", layout="wide")
-
 st.title("LLM Powered Business Intelligence Assistant")
 
 # -------------------------------
@@ -16,22 +16,71 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 # -------------------------------
-# Upload Dataset
+# AWS S3 Setup
 # -------------------------------
+s3 = boto3.client(
+    "s3",
+    region_name=os.getenv("AWS_REGION")
+)
+BUCKET = os.getenv("S3_BUCKET")
+
+# -------------------------------
+# Upload Dataset to Cloud
+# -------------------------------
+st.subheader("Upload Dataset (Cloud Storage Enabled)")
+
 uploaded_file = st.file_uploader("Upload CSV dataset")
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+df = None
 
-    # ✅ Smart demo message
-    st.success("Dataset loaded successfully into AI system")
-    st.info("Power BI dashboards can be refreshed for updated insights")
+if uploaded_file:
+    file_name = uploaded_file.name
+
+    # Read file into memory (IMPORTANT)
+    file_bytes = uploaded_file.read()
+
+    # Upload to S3
+    s3.put_object(
+        Bucket=BUCKET,
+        Key=file_name,
+        Body=file_bytes
+    )
+
+    st.success(f"{file_name} uploaded to cloud (S3)")
+
+    # Read into pandas
+    from io import BytesIO
+    df = pd.read_csv(BytesIO(file_bytes))
+
+# -------------------------------
+# Load from Cloud
+# -------------------------------
+st.subheader("Load Dataset from Cloud")
+
+objects = s3.list_objects_v2(Bucket=BUCKET)
+
+file_options = []
+if "Contents" in objects:
+    file_options = [obj["Key"] for obj in objects["Contents"]]
+
+selected_file = st.selectbox("Select dataset from S3", file_options)
+
+if selected_file:
+    obj = s3.get_object(Bucket=BUCKET, Key=selected_file)
+    df = pd.read_csv(obj["Body"])
+
+    st.success(f"Loaded {selected_file} from cloud")
+
+# -------------------------------
+# If dataset available
+# -------------------------------
+if df is not None:
 
     st.subheader("Dataset Preview")
     st.dataframe(df.head())
 
     # -------------------------------
-    # Chart Section
+    # Charts
     # -------------------------------
     st.subheader("Create Chart")
 
@@ -53,7 +102,7 @@ if uploaded_file:
         st.plotly_chart(fig, use_container_width=True)
 
     # -------------------------------
-    # AI Insights Section
+    # AI Insights
     # -------------------------------
     st.subheader("Ask Questions About Your Data")
 
@@ -65,50 +114,30 @@ if uploaded_file:
         columns_info = ", ".join(df.columns)
         sample_data = df.head(5).to_string()
 
-        correlation_info = ""
-        if len(numeric_cols) >= 2:
-            corr = df[numeric_cols].corr().to_string()
-            correlation_info = f"\nCorrelation Matrix:\n{corr}"
-
         prompt = f"""
 You are an expert business intelligence analyst.
 
-Dataset columns:
-{columns_info}
+Columns: {columns_info}
 
-Sample data:
+Sample:
 {sample_data}
 
-Statistical summary:
+Stats:
 {summary_stats}
 
-{correlation_info}
-
-User question:
+Question:
 {user_question}
 
-Instructions:
-- Give clear business insights
-- Explain trends and possible causes
-- Highlight anomalies
-- Suggest actionable recommendations
+Give business insights, trends, and recommendations.
 """
 
         with st.spinner("Analyzing..."):
             response = model.generate_content(prompt)
-            answer = response.text
-
-        st.subheader("AI Insight")
-        st.write(answer)
+            st.write(response.text)
 
 # -------------------------------
-# Power BI Section
+# Cloud Info (for demo)
 # -------------------------------
-st.subheader("Power BI Dashboard")
+st.subheader("Cloud Integration")
 
-POWERBI_URL = "https://app.powerbi.com/groups/me/reports/5103c909-2686-4b16-b1f1-57d566052411/2975060772e30629a013?ctid=27282fdd-4c0b-4dfb-ba91-228cd83fdf71&experience=power-bi"
-
-components.iframe(POWERBI_URL, height=650, scrolling=True)
-
-if powerbi_url:
-    st.components.v1.iframe(powerbi_url, height=600)
+st.info("Datasets are stored in AWS S3 for persistent and scalable access.")
