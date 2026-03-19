@@ -1,17 +1,17 @@
-# LLM Powered BI Assistant
+# LLM Assistant
 
 A business intelligence assistant combining:
 
 - Streamlit dashboard
 - LLM based analytics
-- Power BI integration
+
 
 ## Features
 
 Upload a dataset
 Generate charts
 Ask natural language questions
-Embed Power BI dashboards
+dashboards
 
 ## Example question
 
