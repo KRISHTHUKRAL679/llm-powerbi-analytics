@@ -29,8 +29,12 @@ st.caption("Upload data, store it in S3, analyze it with SQL and Gemini, generat
 # Helpers
 # =========================================================
 def get_secret(name: str, default=None):
-    if name in st.secrets:
-        return st.secrets.get(name, default)
+    try:
+        if hasattr(st, "secrets") and name in st.secrets:
+            return st.secrets.get(name)
+    except Exception:
+        pass  # secrets file not found
+
     return os.getenv(name, default)
 
 def init_gemini():
@@ -38,7 +42,7 @@ def init_gemini():
     if not api_key:
         return None
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-1.5-flash")
+    return genai.GenerativeModel("gemini-2.5-flash")
 
 def init_s3():
     region = get_secret("AWS_REGION")
